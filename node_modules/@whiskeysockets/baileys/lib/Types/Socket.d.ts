@@ -28,6 +28,8 @@ export declare type SocketConfig = {
     defaultQueryTimeoutMs: number | undefined;
     /** ping-pong interval for WS connection */
     keepAliveIntervalMs: number;
+    /** should baileys use the mobile api instead of the multi device api */
+    mobile?: boolean;
     /** proxy agent */
     agent?: Agent;
     /** pino logger */

@@ -175,7 +175,7 @@ class WhatsAppInstance {
             )
                 await this.SendWebhook('presence', json, this.key)
         })
-
+/*
         // on receive all chats
         sock?.ev.on('chats.set', async ({ chats }) => {
             this.instance.chats = []
@@ -376,7 +376,7 @@ class WhatsAppInstance {
                 }
             }
         })
-
+/*
         sock?.ev.on('groups.upsert', async (newChat) => {
             //console.log('groups.upsert')
             //console.log(newChat)
@@ -433,6 +433,7 @@ class WhatsAppInstance {
                     this.key
                 )
         })
+*/	
     }
 
     async deleteInstance(key) {
