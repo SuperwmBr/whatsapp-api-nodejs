@@ -230,13 +230,15 @@ class WhatsAppInstance {
                 this.instance.chats.splice(index, 1)
             })
         })
-
+*/
         // on new mssage
         sock?.ev.on('messages.upsert', async (m) => {
 
             // always notify messages
             sock?.sendPresenceUpdate('unavailable')
-            
+	})
+
+/*		
             //console.log('messages.upsert')
             //console.log(m)
             if (m.type === 'prepend')
