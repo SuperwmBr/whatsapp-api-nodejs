@@ -151,6 +151,7 @@ class WhatsAppInstance {
             if (qr) {
                 QRCode.toDataURL(qr).then((url) => {
                     this.instance.qr = url
+                    /*
                     this.instance.qrRetry++
                     if (this.instance.qrRetry >= config.instance.maxRetryQr) {
                         // close WebSocket connection
@@ -160,6 +161,7 @@ class WhatsAppInstance {
                         this.instance.qr = ' '
                         logger.info('socket connection terminated')
                     }
+                    */
                 })
             }
         })
@@ -173,7 +175,7 @@ class WhatsAppInstance {
             )
                 await this.SendWebhook('presence', json, this.key)
         })
-
+/*
         // on receive all chats
         sock?.ev.on('chats.set', async ({ chats }) => {
             this.instance.chats = []
@@ -228,9 +230,15 @@ class WhatsAppInstance {
                 this.instance.chats.splice(index, 1)
             })
         })
-
+*/
         // on new mssage
         sock?.ev.on('messages.upsert', async (m) => {
+
+            // always notify messages
+            sock?.sendPresenceUpdate('unavailable')
+	})
+
+/*		
             //console.log('messages.upsert')
             //console.log(m)
             if (m.type === 'prepend')
@@ -303,11 +311,25 @@ class WhatsAppInstance {
                 )
                     await this.SendWebhook('message', webhookData, this.key)
             })
+
         })
 
-        sock?.ev.on('messages.update', async (messages) => {
+        sock?.ev.on('messages.update', async (m) => {
             //console.log('messages.update')
-            //console.dir(messages);
+            //console.log(m)
+            if (
+                ['all', 'messages', 'messages.update'].some((e) =>
+                    config.webhookAllowedEvents.includes(e)
+                )
+            )
+                await this.SendWebhook(
+                    'messageupdate', 
+                    { 
+                        m 
+                    }, 
+                    this.key
+                );
+            
         })
         sock?.ws.on('CB:call', async (data) => {
             if (data.content) {
@@ -356,7 +378,7 @@ class WhatsAppInstance {
                 }
             }
         })
-
+/*
         sock?.ev.on('groups.upsert', async (newChat) => {
             //console.log('groups.upsert')
             //console.log(newChat)
@@ -413,6 +435,7 @@ class WhatsAppInstance {
                     this.key
                 )
         })
+*/	
     }
 
     async deleteInstance(key) {
@@ -438,25 +461,25 @@ class WhatsAppInstance {
     }
 
     async verifyId(id) {
-        if (id.includes('@g.us')) return true
+        if (id.includes('@g.us')) return id
         const [result] = await this.instance.sock?.onWhatsApp(id)
-        if (result?.exists) return true
+        if (result?.exists) return result['jid']
         throw new Error('no account exists')
     }
 
     async sendTextMessage(to, message) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
         const data = await this.instance.sock?.sendMessage(
-            this.getWhatsAppId(to),
+            jid,
             { text: message }
         )
         return data
     }
 
     async sendMediaFile(to, file, type, caption = '', filename) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
         const data = await this.instance.sock?.sendMessage(
-            this.getWhatsAppId(to),
+            jid,
             {
                 mimetype: file.mimetype,
                 [type]: file.buffer,
@@ -468,52 +491,53 @@ class WhatsAppInstance {
         return data
     }
 
-    async sendUrlMediaFile(to, url, type, mimeType, caption = '') {
-        await this.verifyId(this.getWhatsAppId(to))
+    async sendUrlMediaFile(to, url, type, mimeType, caption = '', filename) {
+        const jid = await this.verifyId(this.getWhatsAppId(to))
 
         const data = await this.instance.sock?.sendMessage(
-            this.getWhatsAppId(to),
+            jid,
             {
                 [type]: {
                     url: url,
                 },
                 caption: caption,
                 mimetype: mimeType,
+                fileName: filename,
             }
         )
         return data
     }
 
     async DownloadProfile(of) {
-        await this.verifyId(this.getWhatsAppId(of))
+        const jid = await this.verifyId(this.getWhatsAppId(of))
         const ppUrl = await this.instance.sock?.profilePictureUrl(
-            this.getWhatsAppId(of),
+            jid,
             'image'
         )
         return ppUrl
     }
 
     async getUserStatus(of) {
-        await this.verifyId(this.getWhatsAppId(of))
+        const jid = await this.verifyId(this.getWhatsAppId(of))
         const status = await this.instance.sock?.fetchStatus(
-            this.getWhatsAppId(of)
+            jid
         )
         return status
     }
 
     async blockUnblock(to, data) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
         const status = await this.instance.sock?.updateBlockStatus(
-            this.getWhatsAppId(to),
+            jid,
             data
         )
         return status
     }
 
     async sendButtonMessage(to, data) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
         const result = await this.instance.sock?.sendMessage(
-            this.getWhatsAppId(to),
+            jid,
             {
                 templateButtons: processButton(data.buttons),
                 text: data.text ?? '',
@@ -525,10 +549,10 @@ class WhatsAppInstance {
     }
 
     async sendContactMessage(to, data) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
         const vcard = generateVC(data)
         const result = await this.instance.sock?.sendMessage(
-            await this.getWhatsAppId(to),
+            jid,
             {
                 contacts: {
                     displayName: data.fullName,
@@ -540,9 +564,9 @@ class WhatsAppInstance {
     }
 
     async sendListMessage(to, data) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
         const result = await this.instance.sock?.sendMessage(
-            this.getWhatsAppId(to),
+            jid,
             {
                 text: data.text,
                 sections: data.sections,
@@ -556,10 +580,10 @@ class WhatsAppInstance {
     }
 
     async sendMediaButtonMessage(to, data) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
 
         const result = await this.instance.sock?.sendMessage(
-            this.getWhatsAppId(to),
+            jid,
             {
                 [data.mediaType]: {
                     url: data.image,
@@ -575,9 +599,9 @@ class WhatsAppInstance {
     }
 
     async setStatus(status, to) {
-        await this.verifyId(this.getWhatsAppId(to))
+        const jid = await this.verifyId(this.getWhatsAppId(to))
 
-        const result = await this.instance.sock?.sendPresenceUpdate(status, to)
+        const result = await this.instance.sock?.sendPresenceUpdate(status, jid)
         return result
     }
 
